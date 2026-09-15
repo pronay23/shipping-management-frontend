@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { AuthField } from "../../../features/auth/components/AuthField";
-import { registerEmployee } from "../../../features/auth/api/registerEmployee";
-import type { EmployeeRegisterPayload } from "../../../features/auth/types";
+import { AuthField } from "../../../../features/auth/components/AuthField";
+import { registerEmployee } from "../../../../features/auth/api/registerEmployee";
+import type { EmployeeRegisterPayload } from "../../../../features/auth/types";
 
 type RegisterStringField = Exclude<keyof EmployeeRegisterPayload, "password" | "status">;
 

@@ -249,7 +249,7 @@ export default function ItemTable() {
             <div className="mt-4 grid gap-4 sm:grid-cols-3">
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700">UOM</label>
-                <select value={editForm.uom_id ?? ""} onChange={(e) => setField("uom_id", e.target.value ? Number(e.target.value) : null)} className={`mt-1 ${inputClass}`}>
+                <select value={String(editForm.uom_id ?? "")} onChange={(e) => setField("uom_id", e.target.value ? Number(e.target.value) : null)} className={`mt-1 ${inputClass}`}>
                   <option value="">Select UOM</option>
                   {uoms.map((uom) => (<option key={uom.id} value={uom.id}>{uom.uom_name}</option>))}
                 </select>

@@ -297,21 +297,21 @@ export default function VendorTable() {
               <div className="grid gap-4 sm:grid-cols-3">
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700">Category</label>
-                  <select value={editForm.vendor_category_id ?? ""} onChange={(e) => setField("vendor_category_id", e.target.value ? Number(e.target.value) : null)} className={`mt-1 ${inputClass}`}>
+                  <select value={String(editForm.vendor_category_id ?? "")} onChange={(e) => setField("vendor_category_id", e.target.value ? Number(e.target.value) : null)} className={`mt-1 ${inputClass}`}>
                     <option value="">Select category</option>
                     {categories.map((cat) => (<option key={cat.id} value={cat.id}>{cat.name}</option>))}
                   </select>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700">Country</label>
-                  <select value={editForm.country_id ?? ""} onChange={(e) => setField("country_id", e.target.value ? Number(e.target.value) : null)} className={`mt-1 ${inputClass}`}>
+                  <select value={String(editForm.country_id ?? "")} onChange={(e) => setField("country_id", e.target.value ? Number(e.target.value) : null)} className={`mt-1 ${inputClass}`}>
                     <option value="">Select country</option>
                     {countries.map((c) => (<option key={c.id} value={c.id}>{c.country_name}</option>))}
                   </select>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700">Currency</label>
-                  <select value={editForm.currency_id ?? ""} onChange={(e) => setField("currency_id", e.target.value ? Number(e.target.value) : null)} className={`mt-1 ${inputClass}`}>
+                  <select value={String(editForm.currency_id ?? "")} onChange={(e) => setField("currency_id", e.target.value ? Number(e.target.value) : null)} className={`mt-1 ${inputClass}`}>
                     <option value="">Select currency</option>
                     {currencies.map((c) => (<option key={c.id} value={c.id}>{c.currency_name} ({c.currency_code})</option>))}
                   </select>

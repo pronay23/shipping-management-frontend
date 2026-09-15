@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import type { Employee } from "../../../features/auth/types";
+import type { Employee } from "../../../../features/auth/types";
 import { getEmployeeList } from "../api/getEmployeeList";
 import { updateEmployee, type UpdateEmployeePayload } from "../api/updateEmployee";
 

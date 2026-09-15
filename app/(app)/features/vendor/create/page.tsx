@@ -10,7 +10,7 @@ export default function CreateVendorPage() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   async function handleSubmit(payload: Record<string, unknown>) {
-    await createVendor(payload as Parameters<typeof createVendor>[0]);
+    await createVendor(payload as unknown as Parameters<typeof createVendor>[0]);
     setSuccessMsg("Vendor created successfully!");
     setTimeout(() => {
       router.push("/features/vendor/list");

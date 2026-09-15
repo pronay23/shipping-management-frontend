@@ -10,7 +10,7 @@ export default function CreateItemPage() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   async function handleSubmit(payload: Record<string, unknown>) {
-    await createItem(payload as Parameters<typeof createItem>[0]);
+    await createItem(payload as unknown as Parameters<typeof createItem>[0]);
     setSuccessMsg("Item created successfully!");
     setTimeout(() => {
       router.push("/features/item/list");
