@@ -2,9 +2,12 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useAuth } from "../../../../features/auth/hooks/useAuth";
 import type { Employee } from "../../../../features/auth/types";
 import { getEmployeeList } from "../api/getEmployeeList";
 import { updateEmployee, type UpdateEmployeePayload } from "../api/updateEmployee";
+import { getRoles, type Role } from "../api/getRoles";
+import { assignRole } from "../api/assignRole";
 
 type EditField = Exclude<keyof UpdateEmployeePayload, "status">;
 
@@ -38,7 +41,9 @@ const inputClass =
   "w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none ring-sky-500/10 focus:border-sky-300 focus:ring";
 
 export default function EmployeeTable() {
+  const { token } = useAuth();
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,18 +51,30 @@ export default function EmployeeTable() {
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [editForm, setEditForm] = useState<Record<string, string>>({});
   const [editStatus, setEditStatus] = useState<"active" | "inactive">("active");
+  const [editRole, setEditRole] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!token) return;
     fetchEmployees();
-  }, []);
+    fetchRoles();
+  }, [token]);
+
+  async function fetchRoles() {
+    try {
+      const data = await getRoles(token ?? undefined);
+      setRoles(data);
+    } catch {
+      // Roles may fail if user lacks permission, silently ignore
+    }
+  }
 
   async function fetchEmployees() {
     setLoading(true);
     try {
-      const data = await getEmployeeList();
+      const data = await getEmployeeList(token ?? undefined);
       setEmployees(data);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load employees");
@@ -86,6 +103,7 @@ export default function EmployeeTable() {
       personal_address: emp.personal_address || "",
     });
     setEditStatus((emp.status as "active" | "inactive") || "active");
+    setEditRole(emp.role || "");
     setSaveError(null);
     setSaveSuccess(null);
     setEditModalOpen(true);
@@ -104,7 +122,12 @@ export default function EmployeeTable() {
       }
       payload.status = editStatus;
 
-      await updateEmployee(editingEmployee.id, payload);
+      await updateEmployee(editingEmployee.id, payload, token ?? undefined);
+
+      if (editRole) {
+        await assignRole(editingEmployee.id, { role: editRole }, token ?? undefined);
+      }
+
       setSaveSuccess("Employee updated successfully!");
       await fetchEmployees();
       setTimeout(() => {
@@ -153,6 +176,7 @@ export default function EmployeeTable() {
               <th className="px-4 py-3 text-left font-semibold uppercase tracking-wide">Name</th>
               <th className="px-4 py-3 text-left font-semibold uppercase tracking-wide">Department</th>
               <th className="px-4 py-3 text-left font-semibold uppercase tracking-wide">Designation</th>
+              <th className="px-4 py-3 text-left font-semibold uppercase tracking-wide">Role</th>
               <th className="px-4 py-3 text-left font-semibold uppercase tracking-wide">Email</th>
               <th className="px-4 py-3 text-left font-semibold uppercase tracking-wide">Mobile</th>
               <th className="px-4 py-3 text-center font-semibold uppercase tracking-wide">Status</th>
@@ -168,6 +192,15 @@ export default function EmployeeTable() {
                 <td className="px-4 py-3 font-semibold text-slate-900">{emp.name}</td>
                 <td className="px-4 py-3 text-slate-600">{emp.department || "-"}</td>
                 <td className="px-4 py-3 text-slate-600">{emp.designation || "-"}</td>
+                <td className="px-4 py-3">
+                  {emp.role ? (
+                    <span className="inline-flex items-center rounded-md bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-700 ring-1 ring-inset ring-sky-600/20">
+                      {emp.role}
+                    </span>
+                  ) : (
+                    <span className="text-slate-400">-</span>
+                  )}
+                </td>
                 <td className="px-4 py-3 text-slate-600">{emp.email || "-"}</td>
                 <td className="whitespace-nowrap px-4 py-3 text-slate-600">
                   {emp.official_mobile || emp.personal_mobile || "-"}
@@ -264,6 +297,22 @@ export default function EmployeeTable() {
                 >
                   <option value="active">Active</option>
                   <option value="inactive">Inactive</option>
+                </select>
+              </label>
+
+              <label className="space-y-2 text-sm text-slate-700">
+                Role
+                <select
+                  value={editRole}
+                  onChange={(e) => setEditRole(e.target.value)}
+                  className={inputClass}
+                >
+                  <option value="">No Role</option>
+                  {roles.map((role) => (
+                    <option key={role.id} value={role.name}>
+                      {role.display_name || role.name}
+                    </option>
+                  ))}
                 </select>
               </label>
             </div>

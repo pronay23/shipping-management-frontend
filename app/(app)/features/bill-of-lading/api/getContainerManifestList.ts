@@ -1,3 +1,5 @@
+import { apiGet } from "../../../../lib/api-client";
+
 export interface ContainerManifestListItem {
   id: string | number;
   bill_of_lading_id: string | number | null;
@@ -12,38 +14,25 @@ export interface ContainerManifestListItem {
   updated_at?: string | null;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ?? "http://127.0.0.1:8000/api";
-
-export async function getContainerManifestList(): Promise<ContainerManifestListItem[]> {
-  const [manifestResponse, billResponse] = await Promise.all([
-    fetch(`${API_BASE_URL}/container-manifests`, { cache: "no-store" }),
-    fetch(`${API_BASE_URL}/bill-of-ladings`, { cache: "no-store" }),
+export async function getContainerManifestList(token?: string): Promise<ContainerManifestListItem[]> {
+  const [rawManifests, rawBills] = await Promise.all([
+    apiGet<unknown>("/container-manifests", token),
+    apiGet<unknown>("/bill-of-ladings", token),
   ]);
 
-  if (!manifestResponse.ok) {
-    const message = await manifestResponse.text();
-    throw new Error(
-      `Failed to load container manifests (${manifestResponse.status}): ${message || manifestResponse.statusText}`
-    );
-  }
-
-  const rawData = await manifestResponse.json();
-  if (!Array.isArray(rawData)) {
+  if (!Array.isArray(rawManifests)) {
     return [];
   }
 
   const billTypeByNumber = new Map<string, string | null>();
-  if (billResponse.ok) {
-    const rawBills = await billResponse.json();
-    if (Array.isArray(rawBills)) {
-      for (const bill of rawBills) {
-        const billNumber = (bill.bill_number as string | null)?.trim();
-        if (billNumber) billTypeByNumber.set(billNumber, (bill.bill_type as string | null) ?? null);
-      }
+  if (Array.isArray(rawBills)) {
+    for (const bill of rawBills) {
+      const billNumber = (bill.bill_number as string | null)?.trim();
+      if (billNumber) billTypeByNumber.set(billNumber, (bill.bill_type as string | null) ?? null);
     }
   }
 
-  return rawData
+  return rawManifests
   .slice()
   .sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
     const timeOf = (v: Record<string, unknown>) => {

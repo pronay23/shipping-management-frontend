@@ -1,8 +1,40 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useAuth } from "../../../../features/auth/hooks/useAuth";
 import ContainerManifestTable from "../components/ContainerManifestTable";
 import { getContainerManifestList } from "../api/getContainerManifestList";
+import type { ContainerManifestListItem } from "../api/getContainerManifestList";
 
-export default async function ContainerManifestPage() {
-  const containers = await getContainerManifestList();
+export default function ContainerManifestPage() {
+  const { token } = useAuth();
+  const [containers, setContainers] = useState<ContainerManifestListItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const result = await getContainerManifestList(token);
+        if (!cancelled) {
+          setContainers(result);
+          setError(null);
+        }
+      } catch (err: unknown) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : String(err));
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [token]);
+
+  if (loading) return <main className="min-h-screen bg-slate-50 p-6"><p>Loading...</p></main>;
+  if (error) return <main className="min-h-screen bg-slate-50 p-6"><p className="text-red-600">Error: {error}</p></main>;
 
   return (
     <main className="min-h-screen bg-slate-50 p-6">

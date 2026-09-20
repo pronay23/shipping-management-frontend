@@ -1,18 +1,8 @@
+import { apiGet } from "../../../../lib/api-client";
 import type { ApInvoiceDetail } from "../types";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ?? "http://127.0.0.1:8000/api";
-
-export async function getApInvoice(id: string | number): Promise<ApInvoiceDetail> {
-  const response = await fetch(`${API_BASE_URL}/ap-invoices/${id}`, {
-    cache: "no-store",
-  });
-
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(`Failed to load AP invoice (${response.status}): ${message || response.statusText}`);
-  }
-
-  const item = (await response.json()) as Record<string, unknown>;
+export async function getApInvoice(id: string | number, token?: string): Promise<ApInvoiceDetail> {
+  const item = await apiGet<Record<string, unknown>>(`/ap-invoices/${id}`, token);
 
   return {
     id: (item.id as string | number) ?? "",

@@ -1,6 +1,5 @@
+import { apiGet } from "../../../../lib/api-client";
 import type { JournalEntryListItem } from "../types";
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ?? "http://127.0.0.1:8000/api";
 
 function normalizeStatus(value: unknown): JournalEntryListItem["status"] {
   if (value === "draft" || value === "approved" || value === "voided") return value;
@@ -12,17 +11,8 @@ function normalizeSourceType(value: unknown): JournalEntryListItem["source_type"
   return null;
 }
 
-export async function getJournalEntryList(): Promise<JournalEntryListItem[]> {
-  const response = await fetch(`${API_BASE_URL}/journal-entries`, {
-    cache: "no-store",
-  });
-
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(`Failed to load journal entry list (${response.status}): ${message || response.statusText}`);
-  }
-
-  const rawData = await response.json();
+export async function getJournalEntryList(token?: string): Promise<JournalEntryListItem[]> {
+  const rawData = await apiGet<unknown>("/journal-entries", token);
 
   if (!Array.isArray(rawData)) {
     return [];

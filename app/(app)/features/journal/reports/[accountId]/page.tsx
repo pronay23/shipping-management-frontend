@@ -1,31 +1,52 @@
-import Link from "next/link";
+"use client";
 
+import { useEffect, useState } from "react";
+import { useParams, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { useAuth } from "../../../../../features/auth/hooks/useAuth";
 import { getAccountLedger } from "../../api/getAccountLedger";
 import { formatCurrency, parseNumber } from "../../../invoice/lib/invoice";
-
-interface AccountLedgerPageProps {
-  params: Promise<{ accountId: string }>;
-  searchParams: Promise<{ page?: string | string[] | undefined }>;
-}
+import type { AccountLedgerReport } from "../../types";
 
 function singleLine(value: string | null | undefined): string {
   return (value ?? "").replace(/\s+/g, " ").trim();
 }
 
-export default async function AccountLedgerPage({ params, searchParams }: AccountLedgerPageProps) {
-  const { accountId } = await params;
-  const resolvedSearchParams = await searchParams;
+export default function AccountLedgerPage() {
+  const { accountId } = useParams<{ accountId: string }>();
+  const searchParams = useSearchParams();
+  const { token } = useAuth();
+  const [report, setReport] = useState<AccountLedgerReport | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const rawPage = Array.isArray(resolvedSearchParams.page) ? resolvedSearchParams.page[0] : resolvedSearchParams.page;
-  const parsedPage = Number.parseInt(rawPage ?? "1", 10);
-  const page = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
+  useEffect(() => {
+    if (!token || !accountId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const rawPage = searchParams.get("page");
+        const parsedPage = Number.parseInt(rawPage ?? "1", 10);
+        const page = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
+        const result = await getAccountLedger(accountId, page, 50, token);
+        if (!cancelled) {
+          setReport(result);
+          setError(null);
+        }
+      } catch (err: unknown) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : String(err));
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [token, accountId, searchParams]);
 
-  const report = await getAccountLedger(accountId, page).catch((error: unknown) => {
-    if (error instanceof Error) return { error };
-    return { error: new Error(String(error)) };
-  });
+  if (loading) return <main className="min-h-screen bg-slate-50 p-6"><p>Loading...</p></main>;
 
-  if ("error" in report) {
+  if (error) {
     return (
       <main className="min-h-screen bg-slate-50 p-6">
         <div className="mx-auto max-w-7xl space-y-6">
@@ -33,7 +54,7 @@ export default async function AccountLedgerPage({ params, searchParams }: Accoun
             <p className="text-sm font-semibold uppercase tracking-[0.25em] text-sky-600">Ledger Report</p>
             <h1 className="mt-2 text-2xl font-semibold text-slate-900">General ledger</h1>
             <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
-              {report.error.message}
+              {error}
             </p>
             <Link
               href="/features/journal/reports/trial-balance"
@@ -47,6 +68,8 @@ export default async function AccountLedgerPage({ params, searchParams }: Accoun
     );
   }
 
+  if (!report) return <main className="min-h-screen bg-slate-50 p-6"><p>Account ledger not found.</p></main>;
+
   return (
     <main className="min-h-screen bg-slate-50 p-6">
       <div className="mx-auto max-w-7xl space-y-6">
@@ -55,21 +78,21 @@ export default async function AccountLedgerPage({ params, searchParams }: Accoun
             <div>
               <p className="text-sm font-semibold uppercase tracking-[0.25em] text-sky-600">Ledger Report</p>
               <h1 className="text-2xl font-semibold text-slate-900">
-                {report.account?.code ? `${report.account.code} — ` : ""}
+                {report.account?.code ? `${report.account.code} \u2014 ` : ""}
                 {singleLine(report.account?.name) || "General ledger"}
               </h1>
               <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-slate-600">
                 {report.account?.type ? (
                   <>
                     <span className="capitalize">{report.account.type}</span>
-                    <span className="text-slate-300">•</span>
+                    <span className="text-slate-300">&bull;</span>
                   </>
                 ) : null}
                 <span>
                   Opening balance:{" "}
                   {report.account?.opening_balance != null
                     ? formatCurrency(parseNumber(String(report.account.opening_balance)))
-                    : "—"}
+                    : "\u2014"}
                 </span>
               </div>
             </div>
@@ -110,35 +133,35 @@ export default async function AccountLedgerPage({ params, searchParams }: Accoun
                 <tbody className="divide-y divide-slate-200 bg-white text-slate-700">
                   {report.rows.map((row, index) => (
                     <tr key={`${row.journal_entry_id ?? "na"}-${index}`} className="transition hover:bg-slate-50">
-                      <td className="whitespace-nowrap px-3 py-2">{singleLine(row.entry_date) || "—"}</td>
+                      <td className="whitespace-nowrap px-3 py-2">{singleLine(row.entry_date) || "\u2014"}</td>
                       <td className="whitespace-nowrap px-3 py-2">
                         {row.journal_entry_id != null ? (
                           <Link
                             href={`/features/journal/view/${String(row.journal_entry_id)}`}
                             className="font-semibold text-sky-600 hover:underline"
                           >
-                            {singleLine(row.voucher_number) || "—"}
+                            {singleLine(row.voucher_number) || "\u2014"}
                           </Link>
                         ) : (
-                          singleLine(row.voucher_number) || "—"
+                          singleLine(row.voucher_number) || "\u2014"
                         )}
                       </td>
-                      <td className="max-w-60 truncate px-3 py-2">{singleLine(row.reference) || "—"}</td>
-                      <td className="max-w-80 truncate px-3 py-2">{singleLine(row.note) || "—"}</td>
+                      <td className="max-w-60 truncate px-3 py-2">{singleLine(row.reference) || "\u2014"}</td>
+                      <td className="max-w-80 truncate px-3 py-2">{singleLine(row.note) || "\u2014"}</td>
                       <td className="whitespace-nowrap px-3 py-2 text-right">
                         {row.debit != null && parseNumber(String(row.debit)) !== 0
                           ? formatCurrency(parseNumber(String(row.debit)))
-                          : "—"}
+                          : "\u2014"}
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-right">
                         {row.credit != null && parseNumber(String(row.credit)) !== 0
                           ? formatCurrency(parseNumber(String(row.credit)))
-                          : "—"}
+                          : "\u2014"}
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-right font-medium">
                         {row.running_balance != null
                           ? formatCurrency(parseNumber(String(row.running_balance)))
-                          : "—"}
+                          : "\u2014"}
                       </td>
                     </tr>
                   ))}

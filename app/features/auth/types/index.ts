@@ -1,3 +1,9 @@
+export interface Role {
+  name: string;
+  display_name: string | null;
+  description: string | null;
+}
+
 export interface Employee {
   id: string | number;
   employee_id: string;
@@ -17,6 +23,7 @@ export interface Employee {
   emergency_person_mobile: string | null;
   relationship_with_emergency_person: string | null;
   status: string | null;
+  role?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
 }
@@ -50,4 +57,6 @@ export interface LoginPayload {
 export interface AuthResponse {
   token: string;
   employee: Employee;
+  role: Role | null;
+  permissions: string[];
 }

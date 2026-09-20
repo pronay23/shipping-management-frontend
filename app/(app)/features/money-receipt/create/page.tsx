@@ -1,33 +1,65 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useAuth } from "../../../../features/auth/hooks/useAuth";
 import { getInvoice } from "../../invoice/api/getInvoice";
 import { computeReceivedByInvoice } from "../../invoice/lib/invoice";
 import { MoneyReceipt } from "../components/MoneyReceipt";
 import { getMoneyReceiptList } from "../api/getMoneyReceiptList";
 import type { InvoiceDetail } from "../../invoice/types";
+import type { MoneyReceiptListItem } from "../api/getMoneyReceiptList";
 
-interface MoneyReceiptCreatePageProps {
-  searchParams: Promise<{ invoices?: string; paymentTerm?: string }>;
-}
+export default function MoneyReceiptCreatePage() {
+  const searchParams = useSearchParams();
+  const invoicesParam = searchParams.get("invoices");
+  const paymentTerm = searchParams.get("paymentTerm") ?? undefined;
+  const { token } = useAuth();
+  const [invoiceDetails, setInvoiceDetails] = useState<InvoiceDetail[]>([]);
+  const [receivedByInvoice, setReceivedByInvoice] = useState<Record<string, number>>({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-export default async function MoneyReceiptCreatePage({ searchParams }: MoneyReceiptCreatePageProps) {
-  const { invoices, paymentTerm } = await searchParams;
-  const ids = (invoices ?? "").split(",").map((id) => id.trim()).filter(Boolean);
-
-  const [invoiceDetails, receipts] = await Promise.all([
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
     (async () => {
-      const details: InvoiceDetail[] = [];
-      for (const id of ids) {
-        try {
-          details.push(await getInvoice(id));
-        } catch (error) {
-          console.error(`Failed to load invoice ${id}:`, error);
-        }
-      }
-      return details;
-    })(),
-    getMoneyReceiptList(),
-  ]);
+      try {
+        const ids = (invoicesParam ?? "").split(",").map((id) => id.trim()).filter(Boolean);
 
-  const receivedByInvoice = computeReceivedByInvoice(receipts);
+        const [details, receipts] = await Promise.all([
+          (async () => {
+            const result: InvoiceDetail[] = [];
+            for (const id of ids) {
+              try {
+                result.push(await getInvoice(id, token));
+              } catch (err) {
+                console.error(`Failed to load invoice ${id}:`, err);
+              }
+            }
+            return result;
+          })(),
+          getMoneyReceiptList(token),
+        ]);
+
+        if (!cancelled) {
+          setInvoiceDetails(details);
+          setReceivedByInvoice(computeReceivedByInvoice(receipts));
+          setError(null);
+        }
+      } catch (err: unknown) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : String(err));
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [token, invoicesParam]);
+
+  if (loading) return <main className="min-h-screen bg-slate-50 p-6"><p>Loading...</p></main>;
+  if (error) return <main className="min-h-screen bg-slate-50 p-6"><p className="text-red-600">Error: {error}</p></main>;
 
   return (
     <main className="min-h-screen bg-slate-50 p-6">

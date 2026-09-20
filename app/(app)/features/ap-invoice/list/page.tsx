@@ -1,6 +1,11 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useAuth } from "../../../../features/auth/hooks/useAuth";
 import { getApInvoiceList } from "../api/getApInvoiceList";
 import { formatCurrency, parseNumber } from "../../invoice/lib/invoice";
+import type { ApInvoiceListItem } from "../types";
 
 function singleLine(value: string | null | undefined): string {
   return (value ?? "").replace(/\s+/g, " ").trim();
@@ -13,8 +18,35 @@ const STATUS_CLASSES: Record<string, string> = {
   voided: "bg-slate-200 text-slate-600",
 };
 
-export default async function ApInvoiceListPage() {
-  const invoices = await getApInvoiceList();
+export default function ApInvoiceListPage() {
+  const { token } = useAuth();
+  const [invoices, setInvoices] = useState<ApInvoiceListItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const result = await getApInvoiceList(token);
+        if (!cancelled) {
+          setInvoices(result);
+          setError(null);
+        }
+      } catch (err: unknown) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : String(err));
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [token]);
+
+  if (loading) return <main className="min-h-screen bg-slate-50 p-6"><p>Loading...</p></main>;
+  if (error) return <main className="min-h-screen bg-slate-50 p-6"><p className="text-red-600">Error: {error}</p></main>;
 
   return (
     <main className="min-h-screen bg-slate-50 p-6">
@@ -59,27 +91,27 @@ export default async function ApInvoiceListPage() {
                       <tr key={id} className="transition hover:bg-slate-50">
                         <td className="whitespace-nowrap px-3 py-2 font-semibold text-sky-600">
                           <Link href={`/features/ap-invoice/view/${inv.id}`} className="hover:underline">
-                            {singleLine(inv.ap_invoice_number) || "—"}
+                            {singleLine(inv.ap_invoice_number) || "\u2014"}
                           </Link>
                         </td>
-                        <td className="whitespace-nowrap px-3 py-2">{singleLine(inv.invoice_date) || "—"}</td>
-                        <td className="max-w-52 truncate px-3 py-2">{singleLine(inv.vendor?.vendor_name) || "—"}</td>
+                        <td className="whitespace-nowrap px-3 py-2">{singleLine(inv.invoice_date) || "\u2014"}</td>
+                        <td className="max-w-52 truncate px-3 py-2">{singleLine(inv.vendor?.vendor_name) || "\u2014"}</td>
                         <td className="whitespace-nowrap px-3 py-2 text-right">
-                          {inv.total_bdt != null ? formatCurrency(parseNumber(String(inv.total_bdt))) : "—"}
+                          {inv.total_bdt != null ? formatCurrency(parseNumber(String(inv.total_bdt))) : "\u2014"}
                         </td>
                         <td className="whitespace-nowrap px-3 py-2 text-right text-emerald-700">
                           {inv.paid_amount != null && parseNumber(String(inv.paid_amount)) > 0
                             ? formatCurrency(parseNumber(String(inv.paid_amount)))
-                            : "—"}
+                            : "\u2014"}
                         </td>
                         <td className="whitespace-nowrap px-3 py-2 text-right text-rose-700">
                           {inv.due_amount != null && parseNumber(String(inv.due_amount)) > 0
                             ? formatCurrency(parseNumber(String(inv.due_amount)))
-                            : "—"}
+                            : "\u2014"}
                         </td>
                         <td className="whitespace-nowrap px-3 py-2">
                           <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${STATUS_CLASSES[inv.status ?? ""] ?? "bg-slate-100 text-slate-600"}`}>
-                            {inv.status ?? "—"}
+                            {inv.status ?? "\u2014"}
                           </span>
                         </td>
                       </tr>

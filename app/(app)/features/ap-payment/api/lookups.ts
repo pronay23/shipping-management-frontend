@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ?? "http://127.0.0.1:8000/api";
+import { apiGet } from "../../../../lib/api-client";
 
 export interface ApInvoiceLookup {
   id: number | string;
@@ -11,13 +11,8 @@ export interface ApInvoiceLookup {
   vendor?: { id: number | string; vendor_code: string | null; vendor_name: string | null } | null;
 }
 
-export async function lookupApInvoiceByNumber(invoiceNumber: string): Promise<ApInvoiceLookup> {
-  const url = `${API_BASE_URL}/ap-invoices`;
-  const response = await fetch(url, { headers: { Accept: "application/json" }, cache: "no-store" });
-  if (!response.ok) {
-    throw new Error("Failed to fetch invoices");
-  }
-  const rawData = await response.json();
+export async function lookupApInvoiceByNumber(invoiceNumber: string, token?: string): Promise<ApInvoiceLookup> {
+  const rawData = await apiGet<unknown>("/ap-payments", token);
   const invoices: ApInvoiceLookup[] = Array.isArray(rawData) ? rawData : [];
   const match = invoices.find(
     (inv) => String(inv.ap_invoice_number).toLowerCase() === String(invoiceNumber).toLowerCase()
@@ -28,20 +23,11 @@ export async function lookupApInvoiceByNumber(invoiceNumber: string): Promise<Ap
   return match;
 }
 
-export async function getNextApPaymentNumber(): Promise<string> {
+export async function getNextApPaymentNumber(token?: string): Promise<string> {
   const year = new Date().getFullYear();
   const prefix = `APP-${year}-`;
 
-  const response = await fetch(`${API_BASE_URL}/ap-payments`, {
-    headers: { Accept: "application/json" },
-    cache: "no-store",
-  });
-
-  if (!response.ok) {
-    return `${prefix}0001`;
-  }
-
-  const rawData = await response.json();
+  const rawData = await apiGet<unknown>("/ap-payments", token);
   const payments: Array<{ ap_payment_number?: string | null }> = Array.isArray(rawData) ? rawData : [];
 
   let maxNum = 0;

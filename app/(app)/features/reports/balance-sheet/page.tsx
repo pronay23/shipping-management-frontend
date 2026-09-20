@@ -1,18 +1,19 @@
-import Link from "next/link";
+"use client";
 
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { useAuth } from "../../../../features/auth/hooks/useAuth";
 import { getBalanceSheet } from "../../journal/api/getBalanceSheet";
 import { formatCurrency, parseNumber } from "../../invoice/lib/invoice";
+import type { BalanceSheetReport } from "../../journal/api/getBalanceSheet";
 
 function singleLine(value: string | null | undefined): string {
   return (value ?? "").replace(/\s+/g, " ").trim();
 }
 
 function formatAmount(value: string | number | null): string {
-  return value != null ? formatCurrency(parseNumber(String(value))) : "—";
-}
-
-interface BalanceSheetPageProps {
-  searchParams: Promise<{ as_of?: string }>;
+  return value != null ? formatCurrency(parseNumber(String(value))) : "\u2014";
 }
 
 interface SectionTableProps {
@@ -42,8 +43,8 @@ function SectionTable({ title, rows }: SectionTableProps) {
           ) : (
             rows.map((row) => (
               <tr key={String(row.account_id)} className="transition hover:bg-slate-50">
-                <td className="whitespace-nowrap px-3 py-2">{singleLine(row.account_code) || "—"}</td>
-                <td className="px-3 py-2">{singleLine(row.account_name) || "—"}</td>
+                <td className="whitespace-nowrap px-3 py-2">{singleLine(row.account_code) || "\u2014"}</td>
+                <td className="px-3 py-2">{singleLine(row.account_name) || "\u2014"}</td>
                 <td className="whitespace-nowrap px-3 py-2 text-right">{formatAmount(row.balance)}</td>
               </tr>
             ))
@@ -60,17 +61,36 @@ function SectionTable({ title, rows }: SectionTableProps) {
   );
 }
 
-export default async function BalanceSheetPage({ searchParams }: BalanceSheetPageProps) {
-  const { as_of } = await searchParams;
+export default function BalanceSheetPage() {
+  const searchParams = useSearchParams();
+  const as_of = searchParams.get("as_of") ?? undefined;
+  const { token } = useAuth();
+  const [report, setReport] = useState<BalanceSheetReport | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  let report: Awaited<ReturnType<typeof getBalanceSheet>> | null = null;
-  let errorMessage: string | null = null;
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const result = await getBalanceSheet(as_of, token);
+        if (!cancelled) {
+          setReport(result);
+          setError(null);
+        }
+      } catch (err: unknown) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : String(err));
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [token, as_of]);
 
-  try {
-    report = await getBalanceSheet(as_of);
-  } catch (error: unknown) {
-    errorMessage = error instanceof Error ? error.message : String(error);
-  }
+  if (loading) return <main className="min-h-screen bg-slate-50 p-6"><p>Loading...</p></main>;
 
   return (
     <main className="min-h-screen bg-slate-50 p-6">
@@ -93,8 +113,8 @@ export default async function BalanceSheetPage({ searchParams }: BalanceSheetPag
             </Link>
           </div>
 
-          {errorMessage ? (
-            <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">{errorMessage}</p>
+          {error ? (
+            <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">{error}</p>
           ) : !report ? (
             <p className="text-sm text-slate-500">No balance sheet data available.</p>
           ) : (

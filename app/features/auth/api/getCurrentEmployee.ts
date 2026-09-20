@@ -1,4 +1,4 @@
-import type { Employee } from "../types";
+import type { Employee, Role } from "../types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ?? "http://127.0.0.1:8000/api";
 
@@ -12,7 +12,13 @@ export class ApiError extends Error {
   }
 }
 
-export async function getCurrentEmployee(token: string): Promise<Employee> {
+export interface CurrentEmployeeResponse {
+  employee: Employee;
+  role: Role | null;
+  permissions: string[];
+}
+
+export async function getCurrentEmployee(token: string): Promise<CurrentEmployeeResponse> {
   const response = await fetch(`${API_BASE_URL}/employee/me`, {
     headers: {
       Authorization: `Bearer ${token}`,
@@ -34,5 +40,15 @@ export async function getCurrentEmployee(token: string): Promise<Employee> {
     throw new ApiError(message, response.status);
   }
 
-  return responseText ? JSON.parse(responseText) : ({} as Employee);
+  if (!responseText) {
+    return { employee: {} as Employee, role: null, permissions: [] };
+  }
+
+  const data = JSON.parse(responseText);
+
+  return {
+    employee: data.employee ?? data,
+    role: data.role ?? null,
+    permissions: data.permissions ?? [],
+  };
 }

@@ -1,13 +1,45 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useAuth } from "../../../../features/auth/hooks/useAuth";
 import { getMoneyReceiptList } from "../api/getMoneyReceiptList";
 import { formatCurrency, parseNumber } from "../../invoice/lib/invoice";
+import type { MoneyReceiptListItem } from "../api/getMoneyReceiptList";
 
 function singleLine(value: string | null | undefined): string {
   return (value ?? "").replace(/\s+/g, " ").trim();
 }
 
-export default async function MoneyReceiptListPage() {
-  const receipts = await getMoneyReceiptList();
+export default function MoneyReceiptListPage() {
+  const { token } = useAuth();
+  const [receipts, setReceipts] = useState<MoneyReceiptListItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const result = await getMoneyReceiptList(token);
+        if (!cancelled) {
+          setReceipts(result);
+          setError(null);
+        }
+      } catch (err: unknown) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : String(err));
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [token]);
+
+  if (loading) return <main className="min-h-screen bg-slate-50 p-6"><p>Loading...</p></main>;
+  if (error) return <main className="min-h-screen bg-slate-50 p-6"><p className="text-red-600">Error: {error}</p></main>;
 
   return (
     <main className="min-h-screen bg-slate-50 p-6">
@@ -67,26 +99,26 @@ export default async function MoneyReceiptListPage() {
                       <tr key={id} className="transition hover:bg-slate-50">
                         <td className="whitespace-nowrap px-3 py-2 font-semibold text-sky-600">
                           <Link href={`/features/money-receipt/view/${receipt.id}`} className="hover:underline">
-                            {singleLine(receipt.money_receipt_number) || "—"}
+                            {singleLine(receipt.money_receipt_number) || "\u2014"}
                           </Link>
                         </td>
-                        <td className="whitespace-nowrap px-3 py-2">{singleLine(receipt.money_receipt_date) || "—"}</td>
-                        <td className="whitespace-nowrap px-3 py-2">{singleLine(receipt.bl_number) || "—"}</td>
-                        <td className="max-w-52 truncate px-3 py-2">{singleLine(receipt.customer_name) || "—"}</td>
-                        <td className="max-w-40 truncate px-3 py-2">{singleLine(receipt.vessel) || "—"}</td>
+                        <td className="whitespace-nowrap px-3 py-2">{singleLine(receipt.money_receipt_date) || "\u2014"}</td>
+                        <td className="whitespace-nowrap px-3 py-2">{singleLine(receipt.bl_number) || "\u2014"}</td>
+                        <td className="max-w-52 truncate px-3 py-2">{singleLine(receipt.customer_name) || "\u2014"}</td>
+                        <td className="max-w-40 truncate px-3 py-2">{singleLine(receipt.vessel) || "\u2014"}</td>
                         <td className="whitespace-nowrap px-3 py-2 text-right">
                           {receipt.total_usd != null
                             ? `$${formatCurrency(parseNumber(String(receipt.total_usd)))}`
-                            : "—"}
+                            : "\u2014"}
                         </td>
                         <td className="whitespace-nowrap px-3 py-2 text-right">
-                          {receipt.total_bdt != null ? formatCurrency(parseNumber(String(receipt.total_bdt))) : "—"}
+                          {receipt.total_bdt != null ? formatCurrency(parseNumber(String(receipt.total_bdt))) : "\u2014"}
                         </td>
                         <td className="whitespace-nowrap px-3 py-2 text-right text-emerald-700">
-                          {received > 0 ? formatCurrency(received) : "—"}
+                          {received > 0 ? formatCurrency(received) : "\u2014"}
                         </td>
-                        <td className="whitespace-nowrap px-3 py-2">{singleLine(receipt.payment_term) || "—"}</td>
-                        <td className="whitespace-nowrap px-3 py-2">{coveredInvoices > 0 ? coveredInvoices : "—"}</td>
+                        <td className="whitespace-nowrap px-3 py-2">{singleLine(receipt.payment_term) || "\u2014"}</td>
+                        <td className="whitespace-nowrap px-3 py-2">{coveredInvoices > 0 ? coveredInvoices : "\u2014"}</td>
                       </tr>
                     );
                   })}

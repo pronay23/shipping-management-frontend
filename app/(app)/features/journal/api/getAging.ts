@@ -1,3 +1,5 @@
+import { apiGet } from "../../../../lib/api-client";
+
 export interface AgingRow {
   invoice_id?: string | number;
   ap_invoice_id?: string | number;
@@ -17,22 +19,13 @@ export interface AgingReport {
   totals: { total_outstanding: string | number | null };
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ?? "http://127.0.0.1:8000/api";
-
-export async function getArAging(asOf?: string): Promise<AgingReport> {
+export async function getArAging(asOf?: string, token?: string): Promise<AgingReport> {
   const params = new URLSearchParams();
   if (asOf) params.set("as_of", asOf);
   const qs = params.toString();
-  const url = `${API_BASE_URL}/reports/ar-aging${qs ? `?${qs}` : ""}`;
+  const url = `/reports/ar-aging${qs ? `?${qs}` : ""}`;
 
-  const response = await fetch(url, { cache: "no-store" });
-
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(`Failed to load AR aging (${response.status}): ${message || response.statusText}`);
-  }
-
-  const raw = (await response.json()) as Record<string, unknown>;
+  const raw = await apiGet<Record<string, unknown>>(url, token);
   const data = Array.isArray(raw.data) ? raw.data : [];
   const meta = (raw.meta ?? {}) as Record<string, unknown>;
   const totals = (raw.totals ?? {}) as Record<string, unknown>;
@@ -60,20 +53,13 @@ export async function getArAging(asOf?: string): Promise<AgingReport> {
   };
 }
 
-export async function getApAging(asOf?: string): Promise<AgingReport> {
+export async function getApAging(asOf?: string, token?: string): Promise<AgingReport> {
   const params = new URLSearchParams();
   if (asOf) params.set("as_of", asOf);
   const qs = params.toString();
-  const url = `${API_BASE_URL}/reports/ap-aging${qs ? `?${qs}` : ""}`;
+  const url = `/reports/ap-aging${qs ? `?${qs}` : ""}`;
 
-  const response = await fetch(url, { cache: "no-store" });
-
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(`Failed to load AP aging (${response.status}): ${message || response.statusText}`);
-  }
-
-  const raw = (await response.json()) as Record<string, unknown>;
+  const raw = await apiGet<Record<string, unknown>>(url, token);
   const data = Array.isArray(raw.data) ? raw.data : [];
   const meta = (raw.meta ?? {}) as Record<string, unknown>;
   const totals = (raw.totals ?? {}) as Record<string, unknown>;

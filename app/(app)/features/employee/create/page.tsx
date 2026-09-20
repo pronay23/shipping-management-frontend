@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AuthField } from "../../../../features/auth/components/AuthField";
 import { registerEmployee } from "../../../../features/auth/api/registerEmployee";
+import { getRoles, type Role } from "../api/getRoles";
+import { assignRole } from "../api/assignRole";
 import type { EmployeeRegisterPayload } from "../../../../features/auth/types";
 
 type RegisterStringField = Exclude<keyof EmployeeRegisterPayload, "password" | "status">;
@@ -63,10 +65,18 @@ export default function CreateEmployeePage() {
   const [values, setValues] = useState<Record<RegisterStringField, string>>(INITIAL_VALUES);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [selectedRole, setSelectedRole] = useState<string>("");
+  const [roles, setRoles] = useState<Role[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    getRoles()
+      .then(setRoles)
+      .catch(() => {});
+  }, []);
 
   function setField(key: RegisterStringField, value: string) {
     setValues((prev) => ({ ...prev, [key]: value }));
@@ -99,11 +109,15 @@ export default function CreateEmployeePage() {
     if (!validate()) return;
     setSubmitting(true);
     try {
-      await registerEmployee(toPayload(values, password));
+      const result = await registerEmployee(toPayload(values, password));
+      if (selectedRole && result?.employee_id) {
+        await assignRole(result.employee_id, { role: selectedRole });
+      }
       setSuccessMsg("Employee created successfully!");
       setValues(INITIAL_VALUES);
       setPassword("");
       setConfirmPassword("");
+      setSelectedRole("");
     } catch (err: unknown) {
       setFormError(err instanceof Error ? err.message : "Unable to create employee. Please try again.");
     } finally {
@@ -179,6 +193,22 @@ export default function CreateEmployeePage() {
                 error={errors.confirmPassword}
                 onChange={setConfirmPassword}
               />
+            </div>
+
+            <div className="space-y-2 text-sm text-slate-700">
+              <label className="block font-medium">Role</label>
+              <select
+                value={selectedRole}
+                onChange={(e) => setSelectedRole(e.target.value)}
+                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none ring-sky-500/10 focus:border-sky-300 focus:ring"
+              >
+                <option value="">No Role</option>
+                {roles.map((role) => (
+                  <option key={role.id} value={role.name}>
+                    {role.display_name || role.name}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">

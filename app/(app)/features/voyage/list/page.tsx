@@ -1,8 +1,40 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useAuth } from "../../../../features/auth/hooks/useAuth";
 import VoyageTable from "../components/VoyageTable";
 import { getVoyageList } from "../api/voyageApi";
+import type { Voyage } from "../api/voyageApi";
 
-export default async function VoyageListPage() {
-  const voyages = await getVoyageList();
+export default function VoyageListPage() {
+  const { token } = useAuth();
+  const [voyages, setVoyages] = useState<Voyage[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const result = await getVoyageList(token);
+        if (!cancelled) {
+          setVoyages(result);
+          setError(null);
+        }
+      } catch (err: unknown) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : String(err));
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [token]);
+
+  if (loading) return <main className="min-h-screen bg-[#F1F5F9] p-6"><p>Loading...</p></main>;
+  if (error) return <main className="min-h-screen bg-[#F1F5F9] p-6"><p className="text-red-600">Error: {error}</p></main>;
 
   return (
     <main className="min-h-screen bg-[#F1F5F9] p-6">

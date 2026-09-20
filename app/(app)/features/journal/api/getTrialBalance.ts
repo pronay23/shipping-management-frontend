@@ -1,6 +1,5 @@
+import { apiGet } from "../../../../lib/api-client";
 import type { TrialBalanceReport, TrialBalanceRow } from "../types";
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ?? "http://127.0.0.1:8000/api";
 
 function normalizeRow(item: Record<string, unknown>): TrialBalanceRow {
   return {
@@ -14,17 +13,8 @@ function normalizeRow(item: Record<string, unknown>): TrialBalanceRow {
   };
 }
 
-export async function getTrialBalance(): Promise<TrialBalanceReport> {
-  const response = await fetch(`${API_BASE_URL}/reports/trial-balance`, {
-    cache: "no-store",
-  });
-
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(`Failed to load trial balance (${response.status}): ${message || response.statusText}`);
-  }
-
-  const rawData = (await response.json()) as Record<string, unknown>;
+export async function getTrialBalance(token?: string): Promise<TrialBalanceReport> {
+  const rawData = await apiGet<Record<string, unknown>>("/reports/trial-balance", token);
   const rawRows = Array.isArray(rawData.data) ? rawData.data : [];
   const totals = (rawData.totals ?? {}) as Record<string, unknown>;
 

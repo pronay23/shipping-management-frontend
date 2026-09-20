@@ -1,13 +1,45 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useAuth } from "../../../../features/auth/hooks/useAuth";
 import { getApPaymentList } from "../api/getApPaymentList";
 import { formatCurrency, parseNumber } from "../../invoice/lib/invoice";
+import type { ApPaymentListItem } from "../types";
 
 function singleLine(value: string | null | undefined): string {
   return (value ?? "").replace(/\s+/g, " ").trim();
 }
 
-export default async function ApPaymentListPage() {
-  const payments = await getApPaymentList();
+export default function ApPaymentListPage() {
+  const { token } = useAuth();
+  const [payments, setPayments] = useState<ApPaymentListItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const result = await getApPaymentList(token);
+        if (!cancelled) {
+          setPayments(result);
+          setError(null);
+        }
+      } catch (err: unknown) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : String(err));
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [token]);
+
+  if (loading) return <main className="min-h-screen bg-slate-50 p-6"><p>Loading...</p></main>;
+  if (error) return <main className="min-h-screen bg-slate-50 p-6"><p className="text-red-600">Error: {error}</p></main>;
 
   return (
     <main className="min-h-screen bg-slate-50 p-6">
@@ -51,16 +83,16 @@ export default async function ApPaymentListPage() {
                       <tr key={id} className="transition hover:bg-slate-50">
                         <td className="whitespace-nowrap px-3 py-2 font-semibold text-sky-600">
                           <Link href={`/features/ap-payment/view/${pmt.id}`} className="hover:underline">
-                            {singleLine(pmt.ap_payment_number) || "—"}
+                            {singleLine(pmt.ap_payment_number) || "\u2014"}
                           </Link>
                         </td>
-                        <td className="whitespace-nowrap px-3 py-2">{singleLine(pmt.payment_date) || "—"}</td>
-                        <td className="max-w-52 truncate px-3 py-2">{singleLine(pmt.vendor?.vendor_name) || "—"}</td>
-                        <td className="whitespace-nowrap px-3 py-2">{singleLine(pmt.payment_method) || "—"}</td>
+                        <td className="whitespace-nowrap px-3 py-2">{singleLine(pmt.payment_date) || "\u2014"}</td>
+                        <td className="max-w-52 truncate px-3 py-2">{singleLine(pmt.vendor?.vendor_name) || "\u2014"}</td>
+                        <td className="whitespace-nowrap px-3 py-2">{singleLine(pmt.payment_method) || "\u2014"}</td>
                         <td className="whitespace-nowrap px-3 py-2 text-right font-medium">
-                          {pmt.amount != null ? formatCurrency(parseNumber(String(pmt.amount))) : "—"}
+                          {pmt.amount != null ? formatCurrency(parseNumber(String(pmt.amount))) : "\u2014"}
                         </td>
-                        <td className="whitespace-nowrap px-3 py-2">{singleLine(pmt.reference_number) || "—"}</td>
+                        <td className="whitespace-nowrap px-3 py-2">{singleLine(pmt.reference_number) || "\u2014"}</td>
                       </tr>
                     );
                   })}

@@ -1,10 +1,11 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
+import { useAuth } from "../../../../../features/auth/hooks/useAuth";
 import { getMoneyReceipt, MoneyReceiptDetail } from "../../api/getMoneyReceipt";
 import { MoneyReceiptView } from "../../components/MoneyReceiptView";
 import type { MoneyReceiptFormData } from "../../types";
-
-interface MoneyReceiptViewPageProps {
-  params: Promise<{ id: string }>;
-}
 
 function toMoneyReceiptFormData(detail: MoneyReceiptDetail): MoneyReceiptFormData {
   return {
@@ -45,10 +46,37 @@ function toMoneyReceiptFormData(detail: MoneyReceiptDetail): MoneyReceiptFormDat
   };
 }
 
-export default async function MoneyReceiptViewPage({ params }: MoneyReceiptViewPageProps) {
-  const { id } = await params;
-  const detail = await getMoneyReceipt(id);
-  const data = toMoneyReceiptFormData(detail);
+export default function MoneyReceiptViewPage() {
+  const { id } = useParams<{ id: string }>();
+  const { token } = useAuth();
+  const [data, setData] = useState<MoneyReceiptFormData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!token || !id) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const detail = await getMoneyReceipt(id, token);
+        if (!cancelled) {
+          setData(toMoneyReceiptFormData(detail));
+          setError(null);
+        }
+      } catch (err: unknown) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : String(err));
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [token, id]);
+
+  if (loading) return <main className="min-h-screen bg-slate-50 p-6"><p>Loading...</p></main>;
+  if (error) return <main className="min-h-screen bg-slate-50 p-6"><p className="text-red-600">Error: {error}</p></main>;
+  if (!data) return <main className="min-h-screen bg-slate-50 p-6"><p>Money receipt not found.</p></main>;
 
   return (
     <main className="min-h-screen bg-slate-50 p-6">

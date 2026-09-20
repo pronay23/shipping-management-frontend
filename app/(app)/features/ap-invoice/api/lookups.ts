@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ?? "http://127.0.0.1:8000/api";
+import { apiGet } from "../../../../lib/api-client";
 
 export interface VendorLookup {
   id: number | string;
@@ -17,23 +17,13 @@ export interface ItemLookup {
   item_taxes: string | number | null;
 }
 
-export async function lookupVendorByCode(vendorCode: string): Promise<VendorLookup> {
-  const url = `${API_BASE_URL}/vendors/lookup?vendor_code=${encodeURIComponent(vendorCode)}`;
-  const response = await fetch(url, { headers: { Accept: "application/json" } });
-  if (!response.ok) {
-    throw new Error("Vendor not found");
-  }
-  const body = (await response.json()) as { data: VendorLookup };
+export async function lookupVendorByCode(vendorCode: string, token?: string): Promise<VendorLookup> {
+  const body = await apiGet<{ data: VendorLookup }>(`/vendors/lookup?vendor_code=${encodeURIComponent(vendorCode)}`, token);
   return body.data;
 }
 
-export async function lookupItemByCode(itemCode: string): Promise<ItemLookup> {
-  const url = `${API_BASE_URL}/items/lookup?item_code=${encodeURIComponent(itemCode)}`;
-  const response = await fetch(url, { headers: { Accept: "application/json" } });
-  if (!response.ok) {
-    throw new Error("Item not found");
-  }
-  const body = (await response.json()) as { data: ItemLookup };
+export async function lookupItemByCode(itemCode: string, token?: string): Promise<ItemLookup> {
+  const body = await apiGet<{ data: ItemLookup }>(`/items/lookup?item_code=${encodeURIComponent(itemCode)}`, token);
   return body.data;
 }
 
@@ -45,13 +35,8 @@ export interface AccountLookup {
   is_active: boolean;
 }
 
-export async function lookupAccountByCode(accountCode: string): Promise<AccountLookup> {
-  const url = `${API_BASE_URL}/chart-of-accounts?search=${encodeURIComponent(accountCode)}`;
-  const response = await fetch(url, { headers: { Accept: "application/json" } });
-  if (!response.ok) {
-    throw new Error("Account not found");
-  }
-  const body = (await response.json()) as { data: AccountLookup[] };
+export async function lookupAccountByCode(accountCode: string, token?: string): Promise<AccountLookup> {
+  const body = await apiGet<{ data: AccountLookup[] }>(`/chart-of-accounts?search=${encodeURIComponent(accountCode)}`, token);
   const accounts = body.data ?? [];
   const match = accounts.find((a) => String(a.code) === String(accountCode));
   if (!match) {
@@ -60,22 +45,12 @@ export async function lookupAccountByCode(accountCode: string): Promise<AccountL
   return match;
 }
 
-export async function fetchAccountsList(): Promise<AccountLookup[]> {
-  const url = `${API_BASE_URL}/chart-of-accounts`;
-  const response = await fetch(url, { headers: { Accept: "application/json" } });
-  if (!response.ok) {
-    throw new Error("Failed to load accounts");
-  }
-  const body = (await response.json()) as { data: AccountLookup[] };
+export async function fetchAccountsList(token?: string): Promise<AccountLookup[]> {
+  const body = await apiGet<{ data: AccountLookup[] }>("/chart-of-accounts", token);
   return (body.data ?? []).filter((a) => a.is_active);
 }
 
-export async function getNextApInvoiceNumber(): Promise<string> {
-  const url = `${API_BASE_URL}/ap-invoices/next-number`;
-  const response = await fetch(url, { headers: { Accept: "application/json" } });
-  if (!response.ok) {
-    throw new Error("Failed to generate invoice number");
-  }
-  const body = (await response.json()) as { data: string };
+export async function getNextApInvoiceNumber(token?: string): Promise<string> {
+  const body = await apiGet<{ data: string }>("/ap-invoices/next-number", token);
   return body.data;
 }

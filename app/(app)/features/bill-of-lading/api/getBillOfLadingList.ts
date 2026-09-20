@@ -1,3 +1,5 @@
+import { apiGet } from "../../../../lib/api-client";
+
 export interface BillOfLadingListItem {
   id: string | number;
   bill_number: string | null;
@@ -51,19 +53,8 @@ export interface BillOfLadingListItem {
   updated_at?: string | null;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ?? "http://127.0.0.1:8000/api";
-
-export async function getBillOfLadingList(): Promise<BillOfLadingListItem[]> {
-  const response = await fetch(`${API_BASE_URL}/bill-of-ladings`, {
-    cache: "no-store",
-  });
-
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(`Failed to load B/L list (${response.status}): ${message || response.statusText}`);
-  }
-
-  const rawData = await response.json();
+export async function getBillOfLadingList(token?: string): Promise<BillOfLadingListItem[]> {
+  const rawData = await apiGet<unknown>("/bill-of-ladings", token);
 
   if (!Array.isArray(rawData)) {
     return [];

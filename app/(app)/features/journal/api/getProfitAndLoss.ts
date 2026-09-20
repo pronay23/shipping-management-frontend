@@ -1,6 +1,5 @@
+import { apiGet } from "../../../../lib/api-client";
 import type { ProfitAndLossReport, ProfitAndLossRow } from "../types";
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ?? "http://127.0.0.1:8000/api";
 
 function normalizeRow(item: Record<string, unknown>): ProfitAndLossRow {
   return {
@@ -17,23 +16,14 @@ function normalizeSection(value: unknown): ProfitAndLossRow[] {
     : [];
 }
 
-export async function getProfitAndLoss(from?: string, to?: string): Promise<ProfitAndLossReport> {
+export async function getProfitAndLoss(from?: string, to?: string, token?: string): Promise<ProfitAndLossReport> {
   const params = new URLSearchParams();
   if (from) params.set("from", from);
   if (to) params.set("to", to);
   const qs = params.toString();
-  const url = `${API_BASE_URL}/reports/profit-and-loss${qs ? `?${qs}` : ""}`;
+  const url = `/reports/profit-and-loss${qs ? `?${qs}` : ""}`;
 
-  const response = await fetch(url, {
-    cache: "no-store",
-  });
-
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(`Failed to load profit & loss (${response.status}): ${message || response.statusText}`);
-  }
-
-  const rawData = (await response.json()) as Record<string, unknown>;
+  const rawData = await apiGet<Record<string, unknown>>(url, token);
   const data = (rawData.data ?? {}) as Record<string, unknown>;
   const meta = (rawData.meta ?? {}) as Record<string, unknown>;
   const totals = (rawData.totals ?? {}) as Record<string, unknown>;

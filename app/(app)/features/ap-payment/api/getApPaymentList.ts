@@ -1,18 +1,8 @@
+import { apiGet } from "../../../../lib/api-client";
 import type { ApPaymentListItem } from "../types";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ?? "http://127.0.0.1:8000/api";
-
-export async function getApPaymentList(): Promise<ApPaymentListItem[]> {
-  const response = await fetch(`${API_BASE_URL}/ap-payments`, {
-    cache: "no-store",
-  });
-
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(`Failed to load AP payment list (${response.status}): ${message || response.statusText}`);
-  }
-
-  const rawData = await response.json();
+export async function getApPaymentList(token?: string): Promise<ApPaymentListItem[]> {
+  const rawData = await apiGet<unknown>("/ap-payments", token);
 
   if (!Array.isArray(rawData)) {
     return [];

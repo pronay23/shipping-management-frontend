@@ -1,18 +1,48 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
 import Link from "next/link";
+import { useAuth } from "../../../../../features/auth/hooks/useAuth";
 import { getApInvoice } from "../../api/getApInvoice";
 import { formatCurrency, parseNumber } from "../../../invoice/lib/invoice";
+import type { ApInvoiceDetail } from "../../types";
 
 function singleLine(value: string | null | undefined): string {
   return (value ?? "").replace(/\s+/g, " ").trim();
 }
 
-interface ViewApInvoicePageProps {
-  params: Promise<{ id: string }>;
-}
+export default function ViewApInvoicePage() {
+  const { id } = useParams<{ id: string }>();
+  const { token } = useAuth();
+  const [invoice, setInvoice] = useState<ApInvoiceDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-export default async function ViewApInvoicePage({ params }: ViewApInvoicePageProps) {
-  const { id } = await params;
-  const invoice = await getApInvoice(id);
+  useEffect(() => {
+    if (!token || !id) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const result = await getApInvoice(id, token);
+        if (!cancelled) {
+          setInvoice(result);
+          setError(null);
+        }
+      } catch (err: unknown) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : String(err));
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [token, id]);
+
+  if (loading) return <main className="min-h-screen bg-slate-50 p-6"><p>Loading...</p></main>;
+  if (error) return <main className="min-h-screen bg-slate-50 p-6"><p className="text-red-600">Error: {error}</p></main>;
+  if (!invoice) return <main className="min-h-screen bg-slate-50 p-6"><p>AP Invoice not found.</p></main>;
 
   return (
     <main className="min-h-screen bg-slate-50 p-6">
@@ -25,7 +55,7 @@ export default async function ViewApInvoicePage({ params }: ViewApInvoicePagePro
                 {singleLine(invoice.ap_invoice_number) || "AP Invoice"}
               </h1>
               <p className="mt-2 text-sm text-slate-500">
-                Vendor: {singleLine(invoice.vendor?.vendor_name) || "—"} &middot; Date: {singleLine(invoice.invoice_date) || "—"}
+                Vendor: {singleLine(invoice.vendor?.vendor_name) || "\u2014"} &middot; Date: {singleLine(invoice.invoice_date) || "\u2014"}
               </p>
             </div>
             <Link
@@ -39,32 +69,32 @@ export default async function ViewApInvoicePage({ params }: ViewApInvoicePagePro
           <div className="grid gap-4 sm:grid-cols-3">
             <div>
               <p className="text-xs font-medium text-slate-500">Status</p>
-              <p className="text-sm font-semibold capitalize">{singleLine(invoice.status) || "—"}</p>
+              <p className="text-sm font-semibold capitalize">{singleLine(invoice.status) || "\u2014"}</p>
             </div>
             <div>
               <p className="text-xs font-medium text-slate-500">Due Date</p>
-              <p className="text-sm">{singleLine(invoice.due_date) || "—"}</p>
+              <p className="text-sm">{singleLine(invoice.due_date) || "\u2014"}</p>
             </div>
             <div>
               <p className="text-xs font-medium text-slate-500">Reference</p>
-              <p className="text-sm">{singleLine(invoice.reference) || "—"}</p>
+              <p className="text-sm">{singleLine(invoice.reference) || "\u2014"}</p>
             </div>
             <div>
               <p className="text-xs font-medium text-slate-500">Total BDT</p>
               <p className="text-sm font-semibold">
-                {invoice.total_bdt != null ? formatCurrency(parseNumber(String(invoice.total_bdt))) : "—"}
+                {invoice.total_bdt != null ? formatCurrency(parseNumber(String(invoice.total_bdt))) : "\u2014"}
               </p>
             </div>
             <div>
               <p className="text-xs font-medium text-slate-500">Paid Amount</p>
               <p className="text-sm font-semibold text-emerald-700">
-                {invoice.paid_amount != null ? formatCurrency(parseNumber(String(invoice.paid_amount))) : "—"}
+                {invoice.paid_amount != null ? formatCurrency(parseNumber(String(invoice.paid_amount))) : "\u2014"}
               </p>
             </div>
             <div>
               <p className="text-xs font-medium text-slate-500">Due Amount</p>
               <p className="text-sm font-semibold text-rose-700">
-                {invoice.due_amount != null ? formatCurrency(parseNumber(String(invoice.due_amount))) : "—"}
+                {invoice.due_amount != null ? formatCurrency(parseNumber(String(invoice.due_amount))) : "\u2014"}
               </p>
             </div>
           </div>
@@ -89,13 +119,13 @@ export default async function ViewApInvoicePage({ params }: ViewApInvoicePagePro
                   <tbody className="divide-y divide-slate-200 bg-white">
                     {invoice.items.map((item, i) => (
                       <tr key={i} className="transition hover:bg-slate-50">
-                        <td className="px-3 py-2">{singleLine(item.description) || "—"}</td>
-                        <td className="whitespace-nowrap px-3 py-2 text-right">{item.quantity ?? "—"}</td>
+                        <td className="px-3 py-2">{singleLine(item.description) || "\u2014"}</td>
+                        <td className="whitespace-nowrap px-3 py-2 text-right">{item.quantity ?? "\u2014"}</td>
                         <td className="whitespace-nowrap px-3 py-2 text-right">
-                          {item.unit_price != null ? formatCurrency(parseNumber(String(item.unit_price))) : "—"}
+                          {item.unit_price != null ? formatCurrency(parseNumber(String(item.unit_price))) : "\u2014"}
                         </td>
                         <td className="whitespace-nowrap px-3 py-2 text-right font-medium">
-                          {item.total_bdt != null ? formatCurrency(parseNumber(String(item.total_bdt))) : "—"}
+                          {item.total_bdt != null ? formatCurrency(parseNumber(String(item.total_bdt))) : "\u2014"}
                         </td>
                       </tr>
                     ))}
@@ -122,12 +152,12 @@ export default async function ViewApInvoicePage({ params }: ViewApInvoicePagePro
                     {invoice.payment_links.map((link, i) => (
                       <tr key={i} className="transition hover:bg-slate-50">
                         <td className="px-3 py-2 font-semibold text-sky-600">
-                          {singleLine(link.payment?.ap_payment_number) || "—"}
+                          {singleLine(link.payment?.ap_payment_number) || "\u2014"}
                         </td>
-                        <td className="px-3 py-2">{singleLine(link.payment?.payment_date) || "—"}</td>
-                        <td className="px-3 py-2">{singleLine(link.payment?.payment_method) || "—"}</td>
+                        <td className="px-3 py-2">{singleLine(link.payment?.payment_date) || "\u2014"}</td>
+                        <td className="px-3 py-2">{singleLine(link.payment?.payment_method) || "\u2014"}</td>
                         <td className="whitespace-nowrap px-3 py-2 text-right font-medium text-emerald-700">
-                          {link.paid_amount != null ? formatCurrency(parseNumber(String(link.paid_amount))) : "—"}
+                          {link.paid_amount != null ? formatCurrency(parseNumber(String(link.paid_amount))) : "\u2014"}
                         </td>
                       </tr>
                     ))}

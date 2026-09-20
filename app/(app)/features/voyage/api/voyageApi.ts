@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ?? "http://127.0.0.1:8000/api";
+import { apiGet, apiPost } from "../../../../lib/api-client";
 
 export interface ContainerManifest {
   id?: string | number;
@@ -58,24 +58,11 @@ export interface Voyage {
   updated_at?: string | null;
 }
 
-export async function getVoyageList(): Promise<Voyage[]> {
-  const response = await fetch(`${API_BASE_URL}/voyages`, { cache: "no-store" });
-  if (!response.ok) {
-    throw new Error(`Failed to load voyages (${response.status})`);
-  }
-  const data = await response.json();
+export async function getVoyageList(token?: string): Promise<Voyage[]> {
+  const data = await apiGet<unknown>("/voyages", token);
   return Array.isArray(data) ? data : [];
 }
 
-export async function createVoyage(payload: Omit<Voyage, "id" | "created_at" | "updated_at">): Promise<Voyage> {
-  const response = await fetch(`${API_BASE_URL}/voyages`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({}));
-    throw new Error(err?.message ?? `Failed to create voyage (${response.status})`);
-  }
-  return response.json();
+export async function createVoyage(payload: Omit<Voyage, "id" | "created_at" | "updated_at">, token?: string): Promise<Voyage> {
+  return apiPost<Voyage>("/voyages", payload, token);
 }

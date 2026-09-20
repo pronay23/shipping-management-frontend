@@ -1,21 +1,58 @@
-import Link from "next/link";
+"use client";
 
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useAuth } from "../../../../features/auth/hooks/useAuth";
 import { getJournalEntryList } from "../api/getJournalEntryList";
 import { getInvoiceList } from "../../invoice/api/getInvoiceList";
 import { getMoneyReceiptList } from "../../money-receipt/api/getMoneyReceiptList";
 import { JournalStatusBadge } from "../components/JournalStatusBadge";
 import { formatCurrency, parseNumber } from "../../invoice/lib/invoice";
+import type { JournalEntryListItem } from "../types";
+import type { InvoiceListItem } from "../../invoice/types";
+import type { MoneyReceiptListItem } from "../../money-receipt/api/getMoneyReceiptList";
 
 function singleLine(value: string | null | undefined): string {
   return (value ?? "").replace(/\s+/g, " ").trim();
 }
 
-export default async function JournalEntryListPage() {
-  const [entries, invoices, receipts] = await Promise.all([
-    getJournalEntryList(),
-    getInvoiceList(),
-    getMoneyReceiptList(),
-  ]);
+export default function JournalEntryListPage() {
+  const { token } = useAuth();
+  const [entries, setEntries] = useState<JournalEntryListItem[]>([]);
+  const [invoices, setInvoices] = useState<InvoiceListItem[]>([]);
+  const [receipts, setReceipts] = useState<MoneyReceiptListItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const [entriesResult, invoicesResult, receiptsResult] = await Promise.all([
+          getJournalEntryList(token),
+          getInvoiceList(token),
+          getMoneyReceiptList(token),
+        ]);
+        if (!cancelled) {
+          setEntries(entriesResult);
+          setInvoices(invoicesResult);
+          setReceipts(receiptsResult);
+          setError(null);
+        }
+      } catch (err: unknown) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : String(err));
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [token]);
+
+  if (loading) return <main className="min-h-screen bg-slate-50 p-6"><p>Loading...</p></main>;
+  if (error) return <main className="min-h-screen bg-slate-50 p-6"><p className="text-red-600">Error: {error}</p></main>;
 
   const invoiceBlMap = new Map(invoices.map((inv) => [String(inv.id), inv.bl_number]));
   const receiptBlMap = new Map(receipts.map((rec) => [String(rec.id), rec.bl_number]));
@@ -79,7 +116,7 @@ export default async function JournalEntryListPage() {
                         ? "Money Receipt"
                         : entry.source_type === "invoice"
                           ? "Invoice"
-                          : "—";
+                          : "\u2014";
 
                     const blNumber =
                       entry.source_type === "invoice"
@@ -95,24 +132,24 @@ export default async function JournalEntryListPage() {
                             href={`/features/journal/view/${id}`}
                             className="font-semibold text-sky-600 hover:underline"
                           >
-                            {singleLine(entry.voucher_number) || "—"}
+                            {singleLine(entry.voucher_number) || "\u2014"}
                           </Link>
                         </td>
-                        <td className="whitespace-nowrap px-3 py-2">{singleLine(entry.entry_date) || "—"}</td>
-                        <td className="whitespace-nowrap px-3 py-2">{singleLine(blNumber) || "—"}</td>
+                        <td className="whitespace-nowrap px-3 py-2">{singleLine(entry.entry_date) || "\u2014"}</td>
+                        <td className="whitespace-nowrap px-3 py-2">{singleLine(blNumber) || "\u2014"}</td>
                         <td className="whitespace-nowrap px-3 py-2">{sourceLabel}</td>
-                        <td className="max-w-80 truncate px-3 py-2">{singleLine(entry.memo) || "—"}</td>
+                        <td className="max-w-80 truncate px-3 py-2">{singleLine(entry.memo) || "\u2014"}</td>
                         <td className="whitespace-nowrap px-3 py-2 text-right">
                           {entry.total_debit != null
                             ? formatCurrency(parseNumber(String(entry.total_debit)))
-                            : "—"}
+                            : "\u2014"}
                         </td>
                         <td className="whitespace-nowrap px-3 py-2 text-right">
                           {entry.total_credit != null
                             ? formatCurrency(parseNumber(String(entry.total_credit)))
-                            : "—"}
+                            : "\u2014"}
                         </td>
-                        <td className="whitespace-nowrap px-3 py-2 text-right">{entry.line_count ?? "—"}</td>
+                        <td className="whitespace-nowrap px-3 py-2 text-right">{entry.line_count ?? "\u2014"}</td>
                         <td className="whitespace-nowrap px-3 py-2">
                           <JournalStatusBadge status={entry.status} />
                         </td>

@@ -1,21 +1,20 @@
-import { Suspense } from "react";
-import Link from "next/link";
+"use client";
 
+import { Suspense, useEffect, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { useAuth } from "../../../../../features/auth/hooks/useAuth";
 import { getProfitAndLoss } from "../../api/getProfitAndLoss";
-import type { ProfitAndLossRow } from "../../types";
+import type { ProfitAndLossReport, ProfitAndLossRow } from "../../types";
 import { formatCurrency, parseNumber } from "../../../invoice/lib/invoice";
 import PeriodSelector from "./PeriodSelector";
-
-interface ProfitAndLossPageProps {
-  searchParams: Promise<{ from?: string; to?: string }>;
-}
 
 function singleLine(value: string | null | undefined): string {
   return (value ?? "").replace(/\s+/g, " ").trim();
 }
 
 function formatAmount(value: string | number | null): string {
-  return value != null ? formatCurrency(parseNumber(String(value))) : "—";
+  return value != null ? formatCurrency(parseNumber(String(value))) : "\u2014";
 }
 
 interface SectionTableProps {
@@ -50,8 +49,8 @@ function SectionTable({ title, rows }: SectionTableProps) {
           ) : (
             rows.map((row) => (
               <tr key={String(row.account_id)} className="transition hover:bg-slate-50">
-                <td className="whitespace-nowrap px-3 py-2">{singleLine(row.account_code) || "—"}</td>
-                <td className="px-3 py-2">{singleLine(row.account_name) || "—"}</td>
+                <td className="whitespace-nowrap px-3 py-2">{singleLine(row.account_code) || "\u2014"}</td>
+                <td className="px-3 py-2">{singleLine(row.account_name) || "\u2014"}</td>
                 <td className="whitespace-nowrap px-3 py-2 text-right">{formatAmount(row.amount)}</td>
               </tr>
             ))
@@ -62,17 +61,37 @@ function SectionTable({ title, rows }: SectionTableProps) {
   );
 }
 
-export default async function ProfitAndLossPage({ searchParams }: ProfitAndLossPageProps) {
-  const { from, to } = await searchParams;
+function ProfitAndLossContent() {
+  const searchParams = useSearchParams();
+  const from = searchParams.get("from") ?? undefined;
+  const to = searchParams.get("to") ?? undefined;
+  const { token } = useAuth();
+  const [report, setReport] = useState<ProfitAndLossReport | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  let report: Awaited<ReturnType<typeof getProfitAndLoss>> | null = null;
-  let errorMessage: string | null = null;
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const result = await getProfitAndLoss(from, to, token);
+        if (!cancelled) {
+          setReport(result);
+          setError(null);
+        }
+      } catch (err: unknown) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : String(err));
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [token, from, to]);
 
-  try {
-    report = await getProfitAndLoss(from, to);
-  } catch (error: unknown) {
-    errorMessage = error instanceof Error ? error.message : String(error);
-  }
+  if (loading) return <main className="min-h-screen bg-slate-50 p-6"><p>Loading...</p></main>;
 
   const monthNames = [
     "January", "February", "March", "April", "May", "June",
@@ -88,7 +107,7 @@ export default async function ProfitAndLossPage({ searchParams }: ProfitAndLossP
     } else if (f.getFullYear() === t.getFullYear() && f.getMonth() === 0 && t.getMonth() === 11) {
       periodLabel = `${f.getFullYear()}`;
     } else {
-      periodLabel = `${from} → ${to}`;
+      periodLabel = `${from} \u2192 ${to}`;
     }
   }
 
@@ -125,9 +144,9 @@ export default async function ProfitAndLossPage({ searchParams }: ProfitAndLossP
             </Suspense>
           </div>
 
-          {errorMessage ? (
+          {error ? (
             <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
-              {errorMessage}
+              {error}
             </p>
           ) : !report ? (
             <p className="text-sm text-slate-500">No profit &amp; loss data available.</p>
@@ -160,7 +179,7 @@ export default async function ProfitAndLossPage({ searchParams }: ProfitAndLossP
                         {isLoss ? "Net loss" : "Net profit"}
                       </td>
                       <td className="whitespace-nowrap bg-slate-50 px-3 py-2 text-right text-sm">
-                        {netProfit != null ? formatCurrency(netProfit) : "—"}
+                        {netProfit != null ? formatCurrency(netProfit) : "\u2014"}
                       </td>
                     </tr>
                   </tbody>
@@ -171,5 +190,13 @@ export default async function ProfitAndLossPage({ searchParams }: ProfitAndLossP
         </section>
       </div>
     </main>
+  );
+}
+
+export default function ProfitAndLossPage() {
+  return (
+    <Suspense fallback={<main className="min-h-screen bg-slate-50 p-6"><p>Loading...</p></main>}>
+      <ProfitAndLossContent />
+    </Suspense>
   );
 }

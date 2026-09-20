@@ -1,10 +1,10 @@
+import { apiPost, apiPut } from "../../../../lib/api-client";
 import type { ApInvoiceFormData, ApInvoiceListItem } from "../types";
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ?? "http://127.0.0.1:8000/api";
 
 export async function saveApInvoice(
   form: ApInvoiceFormData,
-  existingId?: string | number
+  existingId?: string | number,
+  token?: string
 ): Promise<ApInvoiceListItem> {
   const payload = {
     vendor_id: Number(form.vendorId),
@@ -26,21 +26,9 @@ export async function saveApInvoice(
     })),
   };
 
-  const url = existingId ? `${API_BASE_URL}/ap-invoices/${existingId}` : `${API_BASE_URL}/ap-invoices`;
-  const method = existingId ? "PUT" : "POST";
-
-  const response = await fetch(url, {
-    method,
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(`Failed to save AP invoice (${response.status}): ${message || response.statusText}`);
-  }
-
-  const item = (await response.json()) as Record<string, unknown>;
+  const item = existingId
+    ? await apiPut<Record<string, unknown>>(`/ap-invoices/${existingId}`, payload, token)
+    : await apiPost<Record<string, unknown>>("/ap-invoices", payload, token);
 
   return {
     id: (item.id as string | number) ?? "",

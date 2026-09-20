@@ -1,6 +1,5 @@
+import { apiGet } from "../../../../lib/api-client";
 import type { AccountLedgerReport, AccountLedgerRow, AccountLedgerSummary } from "../types";
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ?? "http://127.0.0.1:8000/api";
 
 function normalizeAccount(value: unknown): AccountLedgerSummary | null {
   if (typeof value !== "object" || value === null) return null;
@@ -30,23 +29,15 @@ function normalizeRow(item: Record<string, unknown>): AccountLedgerRow {
 export async function getAccountLedger(
   accountId: string | number,
   page = 1,
-  perPage = 50
+  perPage = 50,
+  token?: string
 ): Promise<AccountLedgerReport> {
   const query = new URLSearchParams({
     page: String(page),
     per_page: String(perPage),
   });
 
-  const response = await fetch(`${API_BASE_URL}/accounts/${accountId}/ledger?${query.toString()}`, {
-    cache: "no-store",
-  });
-
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(`Failed to load account ledger (${response.status}): ${message || response.statusText}`);
-  }
-
-  const rawData = (await response.json()) as Record<string, unknown>;
+  const rawData = await apiGet<Record<string, unknown>>(`/accounts/${accountId}/ledger?${query.toString()}`, token);
   const rawRows = Array.isArray(rawData.data) ? rawData.data : [];
   const meta = (rawData.meta ?? {}) as Record<string, unknown>;
 

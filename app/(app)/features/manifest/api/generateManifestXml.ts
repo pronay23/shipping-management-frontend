@@ -1,21 +1,22 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ?? "http://127.0.0.1:8000/api";
+import { apiGet } from "../../../../lib/api-client";
 
-export async function downloadIgmXml(voyageId: string | number) {
-  const url = `${API_BASE_URL}/voyages/${voyageId}/xml/igm`;
-  await downloadFile(url, `IGM_Voyage_${voyageId}.xml`);
+export async function downloadIgmXml(voyageId: string | number, token?: string) {
+  const url = `/voyages/${voyageId}/xml/igm`;
+  await downloadFile(url, `IGM_Voyage_${voyageId}.xml`, token);
 }
 
-export async function downloadEgmXml(voyageId: string | number) {
-  const url = `${API_BASE_URL}/voyages/${voyageId}/xml/egm`;
-  await downloadFile(url, `EGM_Voyage_${voyageId}.xml`);
+export async function downloadEgmXml(voyageId: string | number, token?: string) {
+  const url = `/voyages/${voyageId}/xml/egm`;
+  await downloadFile(url, `EGM_Voyage_${voyageId}.xml`, token);
 }
 
-async function downloadFile(url: string, defaultFilename: string) {
+async function downloadFile(url: string, defaultFilename: string, token?: string) {
   try {
     const response = await fetch(url, {
       method: "GET",
       headers: {
-        "Accept": "application/xml"
+        "Accept": "application/xml",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       }
     });
 

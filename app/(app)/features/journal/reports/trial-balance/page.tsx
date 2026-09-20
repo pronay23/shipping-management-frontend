@@ -1,21 +1,44 @@
-import Link from "next/link";
+"use client";
 
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useAuth } from "../../../../../features/auth/hooks/useAuth";
 import { getTrialBalance } from "../../api/getTrialBalance";
 import { formatCurrency, parseNumber } from "../../../invoice/lib/invoice";
+import type { TrialBalanceReport } from "../../types";
 
 function singleLine(value: string | null | undefined): string {
   return (value ?? "").replace(/\s+/g, " ").trim();
 }
 
-export default async function TrialBalancePage() {
-  let report: Awaited<ReturnType<typeof getTrialBalance>> | null = null;
-  let errorMessage: string | null = null;
+export default function TrialBalancePage() {
+  const { token } = useAuth();
+  const [report, setReport] = useState<TrialBalanceReport | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  try {
-    report = await getTrialBalance();
-  } catch (error: unknown) {
-    errorMessage = error instanceof Error ? error.message : String(error);
-  }
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const result = await getTrialBalance(token);
+        if (!cancelled) {
+          setReport(result);
+          setError(null);
+        }
+      } catch (err: unknown) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : String(err));
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [token]);
+
+  if (loading) return <main className="min-h-screen bg-slate-50 p-6"><p>Loading...</p></main>;
 
   return (
     <main className="min-h-screen bg-slate-50 p-6">
@@ -46,9 +69,9 @@ export default async function TrialBalancePage() {
             </div>
           </div>
 
-          {errorMessage ? (
+          {error ? (
             <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
-              {errorMessage}
+              {error}
             </p>
           ) : !report || report.rows.length === 0 ? (
             <p className="text-sm text-slate-500">No approved ledger activity found.</p>
@@ -69,7 +92,7 @@ export default async function TrialBalancePage() {
                       Total Credit
                     </th>
                     <th className="whitespace-nowrap px-3 py-2 text-right font-semibold uppercase tracking-wide">
-                      Balance (Dr + / Cr −)
+                      Balance (Dr + / Cr &minus;)
                     </th>
                   </tr>
                 </thead>
@@ -78,24 +101,24 @@ export default async function TrialBalancePage() {
                     const accountId = String(row.account_id);
                     return (
                       <tr key={accountId} className="transition hover:bg-slate-50">
-                        <td className="whitespace-nowrap px-3 py-2">{singleLine(row.account_code) || "—"}</td>
+                        <td className="whitespace-nowrap px-3 py-2">{singleLine(row.account_code) || "\u2014"}</td>
                         <td className="px-3 py-2">
                           <Link
                             href={`/features/journal/reports/${accountId}`}
                             className="font-semibold text-sky-600 hover:underline"
                           >
-                            {singleLine(row.account_name) || "—"}
+                            {singleLine(row.account_name) || "\u2014"}
                           </Link>
                         </td>
-                        <td className="px-3 py-2 capitalize">{singleLine(row.account_type) || "—"}</td>
+                        <td className="px-3 py-2 capitalize">{singleLine(row.account_type) || "\u2014"}</td>
                         <td className="whitespace-nowrap px-3 py-2 text-right">
-                          {row.debit_total != null ? formatCurrency(parseNumber(String(row.debit_total))) : "—"}
+                          {row.debit_total != null ? formatCurrency(parseNumber(String(row.debit_total))) : "\u2014"}
                         </td>
                         <td className="whitespace-nowrap px-3 py-2 text-right">
-                          {row.credit_total != null ? formatCurrency(parseNumber(String(row.credit_total))) : "—"}
+                          {row.credit_total != null ? formatCurrency(parseNumber(String(row.credit_total))) : "\u2014"}
                         </td>
                         <td className="whitespace-nowrap px-3 py-2 text-right font-medium">
-                          {row.balance != null ? formatCurrency(parseNumber(String(row.balance))) : "—"}
+                          {row.balance != null ? formatCurrency(parseNumber(String(row.balance))) : "\u2014"}
                         </td>
                       </tr>
                     );
@@ -109,12 +132,12 @@ export default async function TrialBalancePage() {
                     <td className="whitespace-nowrap px-3 py-2 text-right">
                       {report.totals.debit != null
                         ? formatCurrency(parseNumber(String(report.totals.debit)))
-                        : "—"}
+                        : "\u2014"}
                     </td>
                     <td className="whitespace-nowrap px-3 py-2 text-right">
                       {report.totals.credit != null
                         ? formatCurrency(parseNumber(String(report.totals.credit)))
-                        : "—"}
+                        : "\u2014"}
                     </td>
                     <td className="px-3 py-2" />
                   </tr>

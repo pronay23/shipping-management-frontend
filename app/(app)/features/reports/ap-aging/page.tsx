@@ -1,33 +1,53 @@
-import Link from "next/link";
+"use client";
 
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { useAuth } from "../../../../features/auth/hooks/useAuth";
 import { getApAging } from "../../journal/api/getAging";
 import { formatCurrency, parseNumber } from "../../invoice/lib/invoice";
+import type { AgingReport } from "../../journal/api/getAging";
 
 function singleLine(value: string | null | undefined): string {
   return (value ?? "").replace(/\s+/g, " ").trim();
 }
 
 function formatAmount(value: string | number | null): string {
-  return value != null ? formatCurrency(parseNumber(String(value))) : "—";
-}
-
-interface ApAgingPageProps {
-  searchParams: Promise<{ as_of?: string }>;
+  return value != null ? formatCurrency(parseNumber(String(value))) : "\u2014";
 }
 
 const BUCKET_ORDER = ["0-30", "31-60", "61-90", "91+", "unknown"] as const;
 
-export default async function ApAgingPage({ searchParams }: ApAgingPageProps) {
-  const { as_of } = await searchParams;
+export default function ApAgingPage() {
+  const searchParams = useSearchParams();
+  const as_of = searchParams.get("as_of") ?? undefined;
+  const { token } = useAuth();
+  const [report, setReport] = useState<AgingReport | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  let report: Awaited<ReturnType<typeof getApAging>> | null = null;
-  let errorMessage: string | null = null;
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const result = await getApAging(as_of, token);
+        if (!cancelled) {
+          setReport(result);
+          setError(null);
+        }
+      } catch (err: unknown) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : String(err));
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [token, as_of]);
 
-  try {
-    report = await getApAging(as_of);
-  } catch (error: unknown) {
-    errorMessage = error instanceof Error ? error.message : String(error);
-  }
+  if (loading) return <main className="min-h-screen bg-slate-50 p-6"><p>Loading...</p></main>;
 
   return (
     <main className="min-h-screen bg-slate-50 p-6">
@@ -50,8 +70,8 @@ export default async function ApAgingPage({ searchParams }: ApAgingPageProps) {
             </Link>
           </div>
 
-          {errorMessage ? (
-            <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">{errorMessage}</p>
+          {error ? (
+            <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">{error}</p>
           ) : !report || report.data.length === 0 ? (
             <p className="text-sm text-slate-500">No outstanding payables found.</p>
           ) : (
@@ -85,11 +105,11 @@ export default async function ApAgingPage({ searchParams }: ApAgingPageProps) {
                   <tbody className="divide-y divide-slate-200 bg-white">
                     {report.data.map((row, i) => (
                       <tr key={i} className="transition hover:bg-slate-50">
-                        <td className="px-3 py-2 font-semibold text-sky-600">{singleLine(row.ap_invoice_number) || "—"}</td>
-                        <td className="max-w-48 truncate px-3 py-2">{singleLine(row.vendor_name) || "—"}</td>
-                        <td className="whitespace-nowrap px-3 py-2">{singleLine(row.invoice_date) || "—"}</td>
-                        <td className="whitespace-nowrap px-3 py-2 text-right">{row.days_outstanding ?? "—"}</td>
-                        <td className="whitespace-nowrap px-3 py-2">{singleLine(row.bucket) || "—"}</td>
+                        <td className="px-3 py-2 font-semibold text-sky-600">{singleLine(row.ap_invoice_number) || "\u2014"}</td>
+                        <td className="max-w-48 truncate px-3 py-2">{singleLine(row.vendor_name) || "\u2014"}</td>
+                        <td className="whitespace-nowrap px-3 py-2">{singleLine(row.invoice_date) || "\u2014"}</td>
+                        <td className="whitespace-nowrap px-3 py-2 text-right">{row.days_outstanding ?? "\u2014"}</td>
+                        <td className="whitespace-nowrap px-3 py-2">{singleLine(row.bucket) || "\u2014"}</td>
                         <td className="whitespace-nowrap px-3 py-2 text-right font-medium">{formatAmount(row.outstanding)}</td>
                       </tr>
                     ))}

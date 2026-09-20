@@ -1,3 +1,5 @@
+import { apiGet } from "../../../../lib/api-client";
+
 export interface BalanceSheetAccount {
   account_id: string | number;
   account_code: string | null;
@@ -21,22 +23,13 @@ export interface BalanceSheetReport {
   totals: BalanceSheetTotals;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ?? "http://127.0.0.1:8000/api";
-
-export async function getBalanceSheet(asOf?: string): Promise<BalanceSheetReport> {
+export async function getBalanceSheet(asOf?: string, token?: string): Promise<BalanceSheetReport> {
   const params = new URLSearchParams();
   if (asOf) params.set("as_of", asOf);
   const qs = params.toString();
-  const url = `${API_BASE_URL}/reports/balance-sheet${qs ? `?${qs}` : ""}`;
+  const url = `/reports/balance-sheet${qs ? `?${qs}` : ""}`;
 
-  const response = await fetch(url, { cache: "no-store" });
-
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(`Failed to load balance sheet (${response.status}): ${message || response.statusText}`);
-  }
-
-  const raw = (await response.json()) as Record<string, unknown>;
+  const raw = await apiGet<Record<string, unknown>>(url, token);
   const data = (raw.data ?? {}) as Record<string, unknown>;
   const meta = (raw.meta ?? {}) as Record<string, unknown>;
   const totals = (raw.totals ?? {}) as Record<string, unknown>;

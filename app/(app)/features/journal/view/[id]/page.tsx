@@ -1,24 +1,53 @@
-import Link from "next/link";
+"use client";
 
+import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
+import Link from "next/link";
+import { useAuth } from "../../../../../features/auth/hooks/useAuth";
 import { getJournalEntry } from "../../api/getJournalEntry";
 import { JournalLinesTable } from "../../components/JournalLinesTable";
 import { JournalStatusBadge } from "../../components/JournalStatusBadge";
 import { JournalActions } from "../../components/JournalActions";
+import type { JournalEntryDetail } from "../../types";
 
-interface JournalEntryViewPageProps {
-  params: Promise<{ id: string }>;
-}
+export default function JournalEntryViewPage() {
+  const { id } = useParams<{ id: string }>();
+  const { token } = useAuth();
+  const [entry, setEntry] = useState<JournalEntryDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-export default async function JournalEntryViewPage({ params }: JournalEntryViewPageProps) {
-  const { id } = await params;
-  const entry = await getJournalEntry(id);
+  useEffect(() => {
+    if (!token || !id) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const result = await getJournalEntry(id, token);
+        if (!cancelled) {
+          setEntry(result);
+          setError(null);
+        }
+      } catch (err: unknown) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : String(err));
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [token, id]);
+
+  if (loading) return <main className="min-h-screen bg-slate-50 p-6"><p>Loading...</p></main>;
+  if (error) return <main className="min-h-screen bg-slate-50 p-6"><p className="text-red-600">Error: {error}</p></main>;
+  if (!entry) return <main className="min-h-screen bg-slate-50 p-6"><p>Journal entry not found.</p></main>;
 
   const sourceLabel =
     entry.source_type === "money_receipt"
       ? "Money Receipt"
       : entry.source_type === "invoice"
         ? "Invoice"
-        : "—";
+        : "\u2014";
   const sourceHref =
     entry.source_type === "money_receipt"
       ? null
@@ -37,18 +66,18 @@ export default async function JournalEntryViewPage({ params }: JournalEntryViewP
                 {entry.voucher_number || "Journal voucher"}
               </h1>
               <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-slate-600">
-                <span>{entry.entry_date || "—"}</span>
-                <span className="text-slate-300">•</span>
+                <span>{entry.entry_date || "\u2014"}</span>
+                <span className="text-slate-300">&bull;</span>
                 <span>{sourceLabel}</span>
                 {sourceHref ? (
                   <>
-                    <span className="text-slate-300">•</span>
+                    <span className="text-slate-300">&bull;</span>
                     <Link href={sourceHref} className="font-semibold text-sky-600 hover:underline">
                       View source
                     </Link>
                   </>
                 ) : null}
-                <span className="text-slate-300">•</span>
+                <span className="text-slate-300">&bull;</span>
                 <JournalStatusBadge status={entry.status} />
               </div>
               {entry.memo ? (

@@ -1,3 +1,4 @@
+import { apiGet } from "../../../../lib/api-client";
 import type { MoneyReceiptPayload } from "../types";
 
 export interface MoneyReceiptDetail extends Omit<MoneyReceiptPayload, "items" | "invoices"> {
@@ -28,17 +29,6 @@ export interface MoneyReceiptDetail extends Omit<MoneyReceiptPayload, "items" | 
   }>;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ?? "http://127.0.0.1:8000/api";
-
-export async function getMoneyReceipt(id: string | number): Promise<MoneyReceiptDetail> {
-  const response = await fetch(`${API_BASE_URL}/money-receipts/${id}`, {
-    cache: "no-store",
-  });
-
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(`Failed to load money receipt (${response.status}): ${message || response.statusText}`);
-  }
-
-  return (await response.json()) as MoneyReceiptDetail;
+export async function getMoneyReceipt(id: string | number, token?: string): Promise<MoneyReceiptDetail> {
+  return apiGet<MoneyReceiptDetail>(`/money-receipts/${id}`, token);
 }

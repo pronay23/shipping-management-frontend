@@ -1,8 +1,40 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useAuth } from "../../../../features/auth/hooks/useAuth";
 import BillOfLadingTable from "../components/BillOfLadingTable";
 import { getBillOfLadingList } from "../api/getBillOfLadingList";
+import type { BillOfLadingListItem } from "../api/getBillOfLadingList";
 
-export default async function BillOfLadingListPage() {
-  const billOfLadingData = await getBillOfLadingList();
+export default function BillOfLadingListPage() {
+  const { token } = useAuth();
+  const [billOfLadingData, setBillOfLadingData] = useState<BillOfLadingListItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const result = await getBillOfLadingList(token);
+        if (!cancelled) {
+          setBillOfLadingData(result);
+          setError(null);
+        }
+      } catch (err: unknown) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : String(err));
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [token]);
+
+  if (loading) return <main className="min-h-screen bg-slate-50 p-6"><p>Loading...</p></main>;
+  if (error) return <main className="min-h-screen bg-slate-50 p-6"><p className="text-red-600">Error: {error}</p></main>;
 
   return (
     <main className="min-h-screen bg-slate-50 p-6">
